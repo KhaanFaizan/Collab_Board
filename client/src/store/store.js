@@ -6,6 +6,7 @@ import chatReducer from './slices/chatSlice';
 import fileReducer from './slices/fileSlice';
 import calendarReducer from './slices/calendarSlice';
 import analyticsReducer from './slices/analyticsSlice';
+import notificationReducer from './slices/notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,5 +17,6 @@ export const store = configureStore({
     files: fileReducer,
     calendar: calendarReducer,
     analytics: analyticsReducer,
+    notifications: notificationReducer,
   },
 });

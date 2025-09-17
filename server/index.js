@@ -11,6 +11,7 @@ const Project = require("./models/Project");
 const Task = require("./models/Task");
 const ChatMessage = require("./models/ChatMessage");
 const File = require("./models/File");
+const Notification = require("./models/Notification");
 const { authMiddleware, authorizeRoles } = require("./middleware/authMiddleware");
 const { storage } = require("./config/cloudinary");
 const multer = require("multer");
@@ -247,6 +248,20 @@ app.post("/api/projects", authMiddleware, async (req, res) => {
       { path: "members.user", select: "name email" },
     ]);
 
+    // Create notification for project creator
+    try {
+      const notification = await Notification.create({
+        userId: req.user.id,
+        message: `Project "${title}" has been created successfully!`,
+        type: 'project',
+        relatedId: project._id,
+        priority: 'medium'
+      });
+      console.log('✅ Notification created for project:', notification._id);
+    } catch (notificationError) {
+      console.error('❌ Notification creation failed:', notificationError);
+    }
+
     res.status(201).json({
       message: "Project created successfully",
       project,
@@ -452,6 +467,23 @@ app.post("/api/tasks", authMiddleware, async (req, res) => {
       { path: "projectId", select: "title" },
     ]);
 
+    // Create notification for assigned user
+    const assigneeName = task.assignedTo.name;
+    const projectTitle = task.projectId.title;
+    
+    try {
+      const notification = await Notification.create({
+        userId: assignedTo,
+        message: `You have been assigned a new task: "${title}" in project "${projectTitle}"`,
+        type: 'task',
+        relatedId: task._id,
+        priority: 'high'
+      });
+      console.log('✅ Notification created for task:', notification._id);
+    } catch (notificationError) {
+      console.error('❌ Task notification creation failed:', notificationError);
+    }
+
     res.status(201).json({
       message: "Task created successfully",
       task,
@@ -566,6 +598,17 @@ app.put("/api/tasks/:id", authMiddleware, async (req, res) => {
       { path: "assignedTo", select: "name email" },
       { path: "projectId", select: "title" },
     ]);
+
+    // Create notification for task assignee if status changed
+    if (status && status !== 'todo') {
+      await Notification.create({
+        userId: task.assignedTo._id,
+        message: `Task "${task.title}" status updated to "${status}" in project "${task.projectId.title}"`,
+        type: 'task',
+        relatedId: task._id,
+        priority: 'medium'
+      });
+    }
 
     res.json({
       message: "Task updated successfully",
@@ -683,6 +726,22 @@ app.post("/api/files/upload", authMiddleware, upload.single('file'), async (req,
     });
 
     await fileRecord.save();
+
+    // Create notification for project members
+    const projectMembers = project.members.map(member => member.user.toString());
+    const uploaderName = req.user.name || 'Someone';
+    
+    for (const memberId of projectMembers) {
+      if (memberId !== req.user.id) {
+        await Notification.create({
+          userId: memberId,
+          message: `${uploaderName} uploaded a new file: ${req.file.originalname}`,
+          type: 'file',
+          relatedId: projectId,
+          priority: 'medium'
+        });
+      }
+    }
 
     // Populate user info
     await fileRecord.populate('uploadedBy', 'name email');
@@ -942,6 +1001,175 @@ app.get("/api/analytics/:projectId", authMiddleware, async (req, res) => {
 
   } catch (err) {
     console.error("Analytics API error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Notification APIs
+// Create notification
+app.post("/api/notifications", authMiddleware, async (req, res) => {
+  try {
+    const { userId, message, type, relatedId, priority } = req.body;
+    
+    if (!userId || !message) {
+      return res.status(400).json({ error: "User ID and message are required" });
+    }
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const notification = new Notification({
+      userId,
+      message,
+      type: type || 'system',
+      relatedId,
+      priority: priority || 'medium'
+    });
+
+    await notification.save();
+    await notification.populate('userId', 'name email');
+
+    res.status(201).json({
+      success: true,
+      notification
+    });
+
+  } catch (err) {
+    console.error("Create notification error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get user notifications
+app.get("/api/notifications/:userId", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    
+    // Verify user can access these notifications
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Build query
+    const query = { userId };
+    if (unreadOnly === 'true') {
+      query.isRead = false;
+    }
+
+    // Get notifications with pagination
+    const notifications = await Notification.find(query)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Get total count
+    const total = await Notification.countDocuments(query);
+
+    // Get unread count
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+    res.json({
+      success: true,
+      notifications,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      },
+      unreadCount
+    });
+
+  } catch (err) {
+    console.error("Get notifications error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Mark notification as read
+app.put("/api/notifications/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isRead = true } = req.body;
+
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      return res.status(404).json({ error: "Notification not found" });
+    }
+
+    // Verify user owns this notification
+    if (notification.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    notification.isRead = isRead;
+    await notification.save();
+
+    res.json({
+      success: true,
+      notification
+    });
+
+  } catch (err) {
+    console.error("Update notification error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Mark all notifications as read
+app.put("/api/notifications/mark-all-read/:userId", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify user can access these notifications
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await Notification.updateMany(
+      { userId, isRead: false },
+      { isRead: true }
+    );
+
+    res.json({
+      success: true,
+      message: "All notifications marked as read"
+    });
+
+  } catch (err) {
+    console.error("Mark all read error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete notification
+app.delete("/api/notifications/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      return res.status(404).json({ error: "Notification not found" });
+    }
+
+    // Verify user owns this notification
+    if (notification.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await Notification.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "Notification deleted"
+    });
+
+  } catch (err) {
+    console.error("Delete notification error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
