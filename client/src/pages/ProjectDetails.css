@@ -101,6 +101,13 @@
   height: 500px;
 }
 
+.files-section {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .project-info h1 {
   font-size: 28px;
   font-weight: 700;
@@ -339,6 +346,10 @@
   
   .chat-section {
     height: 400px;
+  }
+  
+  .files-section {
+    gap: 16px;
   }
   
   .meta-item {

@@ -10,7 +10,10 @@ const User = require("./models/User");
 const Project = require("./models/Project");
 const Task = require("./models/Task");
 const ChatMessage = require("./models/ChatMessage");
+const File = require("./models/File");
 const { authMiddleware, authorizeRoles } = require("./middleware/authMiddleware");
+const { storage } = require("./config/cloudinary");
+const multer = require("multer");
 
 dotenv.config();
 
@@ -609,6 +612,155 @@ app.delete("/api/tasks/:id", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error("Delete task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Configure Multer
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|rar/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images, documents, and archives are allowed.'));
+    }
+  }
+});
+
+// File upload route
+app.post("/api/files/upload", authMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    const { projectId } = req.body;
+    
+    console.log("File upload request:", { projectId, userId: req.user.id });
+    
+    if (!projectId) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    console.log("File received:", {
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
+    // Verify user has access to the project
+    const project = await Project.findOne({
+      _id: projectId,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(403).json({ error: "Access denied to this project" });
+    }
+
+    // Create file record in database
+    const fileRecord = new File({
+      projectId,
+      uploadedBy: req.user.id,
+      fileUrl: req.file.path,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+      cloudinaryId: req.file.public_id,
+    });
+
+    await fileRecord.save();
+
+    // Populate user info
+    await fileRecord.populate('uploadedBy', 'name email');
+
+    res.status(201).json({
+      message: "File uploaded successfully",
+      file: fileRecord
+    });
+  } catch (err) {
+    console.error("File upload error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get files for a project
+app.get("/api/files/:projectId", authMiddleware, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // Verify user has access to the project
+    const project = await Project.findOne({
+      _id: projectId,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(403).json({ error: "Access denied to this project" });
+    }
+
+    // Get files for the project
+    const files = await File.find({ projectId })
+      .populate('uploadedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json({ files });
+  } catch (err) {
+    console.error("Get files error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete file
+app.delete("/api/files/:fileId", authMiddleware, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+
+    // Find the file and verify access
+    const file = await File.findById(fileId).populate('projectId');
+    if (!file) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    // Check if user has access to the project
+    const project = await Project.findOne({
+      _id: file.projectId._id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(403).json({ error: "Access denied to this project" });
+    }
+
+    // Delete from Cloudinary
+    const { cloudinary } = require('./config/cloudinary');
+    await cloudinary.uploader.destroy(file.cloudinaryId);
+
+    // Delete from database
+    await File.findByIdAndDelete(fileId);
+
+    res.json({ message: "File deleted successfully" });
+  } catch (err) {
+    console.error("Delete file error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

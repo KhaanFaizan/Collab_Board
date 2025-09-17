@@ -1,0 +1,124 @@
+.file-upload-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.file-upload-area {
+  border: 2px dashed #e1e5e9;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  background: #f8f9fa;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.file-upload-area:hover {
+  border-color: #667eea;
+  background: #f0f2ff;
+}
+
+.file-upload-area.drag-active {
+  border-color: #667eea;
+  background: #e8f0fe;
+  transform: scale(1.02);
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-icon {
+  font-size: 48px;
+  color: #667eea;
+  margin-bottom: 8px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+.upload-content h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.upload-content p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.upload-info {
+  font-size: 12px !important;
+  color: #999 !important;
+  margin: 2px 0 !important;
+}
+
+.upload-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.upload-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.upload-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.upload-button i {
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .file-upload-area {
+    padding: 30px 15px;
+  }
+  
+  .upload-icon {
+    font-size: 36px;
+  }
+  
+  .upload-content h3 {
+    font-size: 18px;
+  }
+  
+  .upload-button {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
