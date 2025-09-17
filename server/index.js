@@ -746,6 +746,164 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Update task
+  socket.on("updateTask", async (data) => {
+    try {
+      const { taskId, newStatus, newTitle, newDescription, newAssignedTo } = data;
+
+      // Find the task and verify user has access to the project
+      const task = await Task.findById(taskId).populate('projectId');
+      if (!task) {
+        socket.emit("error", { message: "Task not found" });
+        return;
+      }
+
+      const project = await Project.findOne({
+        _id: task.projectId._id,
+        $or: [
+          { createdBy: socket.userId },
+          { "members.user": socket.userId },
+        ],
+      });
+
+      if (!project) {
+        socket.emit("error", { message: "Access denied to this project" });
+        return;
+      }
+
+      // Update the task
+      const updateData = {};
+      if (newStatus) updateData.status = newStatus;
+      if (newTitle) updateData.title = newTitle;
+      if (newDescription) updateData.description = newDescription;
+      if (newAssignedTo) updateData.assignedTo = newAssignedTo;
+
+      const updatedTask = await Task.findByIdAndUpdate(
+        taskId,
+        updateData,
+        { new: true }
+      ).populate([
+        { path: "assignedTo", select: "name email" },
+        { path: "projectId", select: "title" },
+      ]);
+
+      // Broadcast updated task to all users in the project room
+      io.to(task.projectId._id.toString()).emit("taskUpdated", {
+        taskId: updatedTask._id,
+        projectId: task.projectId._id,
+        updatedTask: updatedTask,
+        updatedBy: {
+          _id: socket.userId,
+          name: socket.user.name,
+          email: socket.user.email,
+        },
+      });
+
+      console.log(`📝 Task ${taskId} updated by ${socket.user.name} in project ${task.projectId._id}`);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      socket.emit("error", { message: "Failed to update task" });
+    }
+  });
+
+  // Create task
+  socket.on("createTask", async (data) => {
+    try {
+      const { projectId, title, description, assignedTo } = data;
+
+      // Verify user has access to the project
+      const project = await Project.findOne({
+        _id: projectId,
+        $or: [
+          { createdBy: socket.userId },
+          { "members.user": socket.userId },
+        ],
+      });
+
+      if (!project) {
+        socket.emit("error", { message: "Access denied to this project" });
+        return;
+      }
+
+      // Create the task
+      const task = new Task({
+        title,
+        description,
+        assignedTo,
+        projectId,
+      });
+
+      await task.save();
+      await task.populate([
+        { path: "assignedTo", select: "name email" },
+        { path: "projectId", select: "title" },
+      ]);
+
+      // Broadcast new task to all users in the project room
+      io.to(projectId).emit("taskCreated", {
+        taskId: task._id,
+        projectId: projectId,
+        newTask: task,
+        createdBy: {
+          _id: socket.userId,
+          name: socket.user.name,
+          email: socket.user.email,
+        },
+      });
+
+      console.log(`➕ Task created by ${socket.user.name} in project ${projectId}`);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      socket.emit("error", { message: "Failed to create task" });
+    }
+  });
+
+  // Delete task
+  socket.on("deleteTask", async (data) => {
+    try {
+      const { taskId } = data;
+
+      // Find the task and verify user has access to the project
+      const task = await Task.findById(taskId).populate('projectId');
+      if (!task) {
+        socket.emit("error", { message: "Task not found" });
+        return;
+      }
+
+      const project = await Project.findOne({
+        _id: task.projectId._id,
+        $or: [
+          { createdBy: socket.userId },
+          { "members.user": socket.userId },
+        ],
+      });
+
+      if (!project) {
+        socket.emit("error", { message: "Access denied to this project" });
+        return;
+      }
+
+      // Delete the task
+      await Task.findByIdAndDelete(taskId);
+
+      // Broadcast task deletion to all users in the project room
+      io.to(task.projectId._id.toString()).emit("taskDeleted", {
+        taskId: taskId,
+        projectId: task.projectId._id,
+        deletedBy: {
+          _id: socket.userId,
+          name: socket.user.name,
+          email: socket.user.email,
+        },
+      });
+
+      console.log(`🗑️ Task ${taskId} deleted by ${socket.user.name} in project ${task.projectId._id}`);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      socket.emit("error", { message: "Failed to delete task" });
+    }
+  });
+
   // Leave project room
   socket.on("leaveRoom", (projectId) => {
     socket.leave(projectId);

@@ -79,6 +79,43 @@ class SocketService {
     }
   }
 
+  // Task-related methods
+  updateTask(taskId, updateData) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('updateTask', { taskId, ...updateData });
+    }
+  }
+
+  createTask(projectId, taskData) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('createTask', { projectId, ...taskData });
+    }
+  }
+
+  deleteTask(taskId) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('deleteTask', { taskId });
+    }
+  }
+
+  onTaskUpdated(callback) {
+    if (this.socket) {
+      this.socket.on('taskUpdated', callback);
+    }
+  }
+
+  onTaskCreated(callback) {
+    if (this.socket) {
+      this.socket.on('taskCreated', callback);
+    }
+  }
+
+  onTaskDeleted(callback) {
+    if (this.socket) {
+      this.socket.on('taskDeleted', callback);
+    }
+  }
+
   removeAllListeners() {
     if (this.socket) {
       this.socket.removeAllListeners();
