@@ -1,0 +1,626 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("./models/User");
+const Project = require("./models/Project");
+const Task = require("./models/Task");
+const { authMiddleware, authorizeRoles } = require("./middleware/authMiddleware");
+
+dotenv.config();
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Default route
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
+
+// ✅ Test route to create a user
+app.post("/api/test-user", async (req, res) => {
+  try {
+    const user = new User({
+      name: "Faizan Tester",
+      email: "faizan@example.com",
+      password: "123456"
+    });
+
+    await user.save();
+    res.json({ message: "✅ Test user saved successfully", user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ Test route to fetch all users
+app.get("/api/test-users", async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ Signup route
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password, role = "member" } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        error: "Name, email, and password are required" 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: "User with this email already exists" 
+      });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create new user
+    const user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role
+    });
+
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role 
+      },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
+      message: "User created successfully",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Login route
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({ 
+        error: "Email and password are required" 
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ 
+        error: "Invalid email or password" 
+      });
+    }
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        error: "Invalid email or password" 
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role 
+      },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Protected route example (requires authentication)
+app.get("/api/profile", authMiddleware, (req, res) => {
+  res.json({
+    message: "Access granted to protected route",
+    user: req.user
+  });
+});
+
+// ✅ Admin-only route (requires admin role)
+app.get("/api/admin/users", authMiddleware, authorizeRoles("admin"), (req, res) => {
+  res.json({
+    message: "Admin access granted",
+    user: req.user,
+    data: "This is admin-only data"
+  });
+});
+
+// ✅ Manager and Admin route (requires manager or admin role)
+app.get("/api/management/dashboard", authMiddleware, authorizeRoles("admin", "manager"), (req, res) => {
+  res.json({
+    message: "Management access granted",
+    user: req.user,
+    data: "This is management-level data"
+  });
+});
+
+// ✅ Member-only route (requires member role)
+app.get("/api/member/content", authMiddleware, authorizeRoles("member"), (req, res) => {
+  res.json({
+    message: "Member access granted",
+    user: req.user,
+    data: "This is member-only content"
+  });
+});
+
+// ==================== PROJECT ROUTES ====================
+
+// ✅ Create project (auth required)
+app.post("/api/projects", authMiddleware, async (req, res) => {
+  try {
+    const { title, description, deadline } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !deadline) {
+      return res.status(400).json({
+        error: "Title, description, and deadline are required",
+      });
+    }
+
+    // Validate deadline is in the future
+    const deadlineDate = new Date(deadline);
+    if (deadlineDate <= new Date()) {
+      return res.status(400).json({
+        error: "Deadline must be in the future",
+      });
+    }
+
+    // Create new project
+    const project = new Project({
+      title,
+      description,
+      deadline: deadlineDate,
+      createdBy: req.user.id,
+    });
+
+    await project.save();
+
+    // Populate the project with user details
+    await project.populate([
+      { path: "createdBy", select: "name email" },
+      { path: "members.user", select: "name email" },
+    ]);
+
+    res.status(201).json({
+      message: "Project created successfully",
+      project,
+    });
+  } catch (err) {
+    console.error("Create project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Get all projects user is part of
+app.get("/api/projects", authMiddleware, async (req, res) => {
+  try {
+    const projects = await Project.find({
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    })
+      .populate("createdBy", "name email")
+      .populate("members.user", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      message: "Projects retrieved successfully",
+      projects,
+    });
+  } catch (err) {
+    console.error("Get projects error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Get single project details
+app.get("/api/projects/:id", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    })
+      .populate("createdBy", "name email")
+      .populate("members.user", "name email");
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or access denied",
+      });
+    }
+
+    res.json({
+      message: "Project retrieved successfully",
+      project,
+    });
+  } catch (err) {
+    console.error("Get project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Update project (only creator/manager)
+app.put("/api/projects/:id", authMiddleware, async (req, res) => {
+  try {
+    const { title, description, deadline } = req.body;
+
+    // Find project and check permissions
+    const project = await Project.findOne({
+      _id: req.params.id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id, "members.role": "manager" },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or insufficient permissions",
+      });
+    }
+
+    // Update fields if provided
+    if (title) project.title = title;
+    if (description) project.description = description;
+    if (deadline) {
+      const deadlineDate = new Date(deadline);
+      if (deadlineDate <= new Date()) {
+        return res.status(400).json({
+          error: "Deadline must be in the future",
+        });
+      }
+      project.deadline = deadlineDate;
+    }
+
+    await project.save();
+
+    // Populate the updated project
+    await project.populate([
+      { path: "createdBy", select: "name email" },
+      { path: "members.user", select: "name email" },
+    ]);
+
+    res.json({
+      message: "Project updated successfully",
+      project,
+    });
+  } catch (err) {
+    console.error("Update project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Delete project (only creator/manager)
+app.delete("/api/projects/:id", authMiddleware, async (req, res) => {
+  try {
+    // Find project and check permissions
+    const project = await Project.findOne({
+      _id: req.params.id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id, "members.role": "manager" },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or insufficient permissions",
+      });
+    }
+
+    await Project.findByIdAndDelete(req.params.id);
+
+    res.json({
+      message: "Project deleted successfully",
+    });
+  } catch (err) {
+    console.error("Delete project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ==================== TASK ROUTES ====================
+
+// ✅ Create task (auth required)
+app.post("/api/tasks", authMiddleware, async (req, res) => {
+  try {
+    const { title, description, assignedTo, projectId } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !assignedTo || !projectId) {
+      return res.status(400).json({
+        error: "Title, description, assignedTo, and projectId are required",
+      });
+    }
+
+    // Verify project exists and user has access to it
+    const project = await Project.findOne({
+      _id: projectId,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or access denied",
+      });
+    }
+
+    // Verify assigned user exists and is a member of the project
+    const assignedUser = await User.findById(assignedTo);
+    if (!assignedUser) {
+      return res.status(400).json({
+        error: "Assigned user not found",
+      });
+    }
+
+    // Check if assigned user is a member of the project
+    const isMember = project.members.some(
+      (member) => member.user.toString() === assignedTo
+    );
+    if (!isMember) {
+      return res.status(400).json({
+        error: "Assigned user is not a member of this project",
+      });
+    }
+
+    // Create new task
+    const task = new Task({
+      title,
+      description,
+      assignedTo,
+      projectId,
+    });
+
+    await task.save();
+
+    // Populate the task with user and project details
+    await task.populate([
+      { path: "assignedTo", select: "name email" },
+      { path: "projectId", select: "title" },
+    ]);
+
+    res.status(201).json({
+      message: "Task created successfully",
+      task,
+    });
+  } catch (err) {
+    console.error("Create task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Get tasks by project ID
+app.get("/api/tasks/:projectId", authMiddleware, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // Verify project exists and user has access to it
+    const project = await Project.findOne({
+      _id: projectId,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or access denied",
+      });
+    }
+
+    // Get all tasks for the project
+    const tasks = await Task.find({ projectId })
+      .populate("assignedTo", "name email")
+      .populate("projectId", "title")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      message: "Tasks retrieved successfully",
+      tasks,
+    });
+  } catch (err) {
+    console.error("Get tasks error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Update task
+app.put("/api/tasks/:id", authMiddleware, async (req, res) => {
+  try {
+    const { title, description, status, assignedTo } = req.body;
+    const { id } = req.params;
+
+    // Find task and verify user has access to the project
+    const task = await Task.findById(id).populate("projectId");
+    if (!task) {
+      return res.status(404).json({
+        error: "Task not found",
+      });
+    }
+
+    // Check if user has access to the project
+    const project = await Project.findOne({
+      _id: task.projectId._id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or access denied",
+      });
+    }
+
+    // Update fields if provided
+    if (title) task.title = title;
+    if (description) task.description = description;
+    if (status) {
+      if (!["todo", "in-progress", "done"].includes(status)) {
+        return res.status(400).json({
+          error: "Status must be one of: todo, in-progress, done",
+        });
+      }
+      task.status = status;
+    }
+    if (assignedTo) {
+      // Verify assigned user exists and is a member of the project
+      const assignedUser = await User.findById(assignedTo);
+      if (!assignedUser) {
+        return res.status(400).json({
+          error: "Assigned user not found",
+        });
+      }
+
+      const isMember = project.members.some(
+        (member) => member.user.toString() === assignedTo
+      );
+      if (!isMember) {
+        return res.status(400).json({
+          error: "Assigned user is not a member of this project",
+        });
+      }
+
+      task.assignedTo = assignedTo;
+    }
+
+    await task.save();
+
+    // Populate the updated task
+    await task.populate([
+      { path: "assignedTo", select: "name email" },
+      { path: "projectId", select: "title" },
+    ]);
+
+    res.json({
+      message: "Task updated successfully",
+      task,
+    });
+  } catch (err) {
+    console.error("Update task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Delete task
+app.delete("/api/tasks/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find task and verify user has access to the project
+    const task = await Task.findById(id).populate("projectId");
+    if (!task) {
+      return res.status(404).json({
+        error: "Task not found",
+      });
+    }
+
+    // Check if user has access to the project
+    const project = await Project.findOne({
+      _id: task.projectId._id,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found or access denied",
+      });
+    }
+
+    await Task.findByIdAndDelete(id);
+
+    res.json({
+      message: "Task deleted successfully",
+    });
+  } catch (err) {
+    console.error("Delete task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
