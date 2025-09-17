@@ -12,6 +12,12 @@
   border-bottom: 1px solid #e1e5e9;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -34,6 +40,26 @@
   color: #999;
 }
 
+.chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid #e1e5e9;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+  color: #667eea;
+}
+
 .create-btn {
   display: flex;
   align-items: center;
@@ -51,6 +77,11 @@
 .create-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.chat-container-tasks {
+  margin-bottom: 30px;
+  height: 400px;
 }
 
 .create-form-container {
@@ -349,6 +380,17 @@
     gap: 16px;
   }
   
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .chat-btn,
+  .create-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  
   .form-actions {
     flex-direction: column;
   }
@@ -361,5 +403,9 @@
   .task-actions {
     width: 100%;
     justify-content: space-between;
+  }
+  
+  .chat-container-tasks {
+    height: 300px;
   }
 }

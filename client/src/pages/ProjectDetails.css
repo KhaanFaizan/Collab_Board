@@ -53,10 +53,52 @@
   color: white;
 }
 
+.project-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  color: #333;
+  background-color: #f8f9fa;
+}
+
+.tab-button.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background-color: #f8f9fa;
+}
+
+.tab-button i {
+  font-size: 16px;
+}
+
 .project-content {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 30px;
+}
+
+.chat-section {
+  grid-column: 1 / -1;
+  height: 500px;
 }
 
 .project-info h1 {
@@ -274,9 +316,29 @@
     gap: 16px;
   }
   
+  .project-tabs {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .tab-button {
+    justify-content: flex-start;
+    border-bottom: 1px solid #e1e5e9;
+    border-right: none;
+  }
+  
+  .tab-button.active {
+    border-bottom-color: #e1e5e9;
+    border-left: 3px solid #667eea;
+  }
+  
   .project-content {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+  
+  .chat-section {
+    height: 400px;
   }
   
   .meta-item {

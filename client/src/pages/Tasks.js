@@ -3,11 +3,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useParams, Link } from 'react-router-dom';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../store/slices/taskSlice';
 import { fetchProjects } from '../store/slices/projectSlice';
+import Chat from '../components/Chat';
 import './Tasks.css';
 
 const Tasks = () => {
   const { projectId } = useParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -70,13 +72,22 @@ const Tasks = () => {
           <span>/</span>
           <span>Tasks</span>
         </div>
-        <button
-          className="create-btn"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-        >
-          <i className="fas fa-plus"></i>
-          New Task
-        </button>
+        <div className="header-actions">
+          <button
+            className="chat-btn"
+            onClick={() => setShowChat(!showChat)}
+          >
+            <i className="fas fa-comments"></i>
+            {showChat ? 'Hide Chat' : 'Show Chat'}
+          </button>
+          <button
+            className="create-btn"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+          >
+            <i className="fas fa-plus"></i>
+            New Task
+          </button>
+        </div>
       </div>
 
       {showCreateForm && (
@@ -140,6 +151,12 @@ const Tasks = () => {
       )}
 
       {error && <div className="error-message">{error}</div>}
+
+      {showChat && (
+        <div className="chat-container-tasks">
+          <Chat projectId={project._id} projectName={project.title} />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="loading">Loading tasks...</div>

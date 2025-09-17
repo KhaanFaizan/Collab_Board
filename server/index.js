@@ -4,9 +4,12 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const http = require("http");
+const socketIo = require("socket.io");
 const User = require("./models/User");
 const Project = require("./models/Project");
 const Task = require("./models/Task");
+const ChatMessage = require("./models/ChatMessage");
 const { authMiddleware, authorizeRoles } = require("./middleware/authMiddleware");
 
 dotenv.config();
@@ -619,8 +622,145 @@ mongoose
   .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Setup Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Socket.io authentication middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error("Authentication error: No token provided"));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
+    const user = await User.findById(decoded.userId).select("name email role");
+    
+    if (!user) {
+      return next(new Error("Authentication error: User not found"));
+    }
+
+    socket.userId = user._id.toString();
+    socket.user = user;
+    next();
+  } catch (err) {
+    next(new Error("Authentication error: Invalid token"));
+  }
+});
+
+// Socket.io connection handling
+io.on("connection", (socket) => {
+  console.log(`👤 User connected: ${socket.user.name} (${socket.id})`);
+
+  // Join project room
+  socket.on("joinRoom", async (projectId) => {
+    try {
+      // Verify user has access to the project
+      const project = await Project.findOne({
+        _id: projectId,
+        $or: [
+          { createdBy: socket.userId },
+          { "members.user": socket.userId },
+        ],
+      });
+
+      if (!project) {
+        socket.emit("error", { message: "Access denied to this project" });
+        return;
+      }
+
+      socket.join(projectId);
+      console.log(`👤 User ${socket.user.name} joined project room: ${projectId}`);
+      
+      // Send recent messages to the user
+      const recentMessages = await ChatMessage.find({ projectId })
+        .populate("senderId", "name email")
+        .sort({ timestamp: -1 })
+        .limit(50);
+
+      socket.emit("recentMessages", recentMessages.reverse());
+    } catch (error) {
+      console.error("Error joining room:", error);
+      socket.emit("error", { message: "Failed to join project room" });
+    }
+  });
+
+  // Send message
+  socket.on("sendMessage", async (data) => {
+    try {
+      const { projectId, message } = data;
+
+      // Verify user has access to the project
+      const project = await Project.findOne({
+        _id: projectId,
+        $or: [
+          { createdBy: socket.userId },
+          { "members.user": socket.userId },
+        ],
+      });
+
+      if (!project) {
+        socket.emit("error", { message: "Access denied to this project" });
+        return;
+      }
+
+      // Create and save message
+      const chatMessage = new ChatMessage({
+        projectId,
+        senderId: socket.userId,
+        message: message.trim(),
+      });
+
+      await chatMessage.save();
+
+      // Populate sender info
+      await chatMessage.populate("senderId", "name email");
+
+      // Broadcast message to all users in the project room
+      io.to(projectId).emit("newMessage", {
+        _id: chatMessage._id,
+        projectId: chatMessage.projectId,
+        senderId: chatMessage.senderId,
+        message: chatMessage.message,
+        timestamp: chatMessage.timestamp,
+        sender: {
+          _id: chatMessage.senderId._id,
+          name: chatMessage.senderId.name,
+          email: chatMessage.senderId.email,
+        },
+      });
+
+      console.log(`💬 Message sent in project ${projectId} by ${socket.user.name}`);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      socket.emit("error", { message: "Failed to send message" });
+    }
+  });
+
+  // Leave project room
+  socket.on("leaveRoom", (projectId) => {
+    socket.leave(projectId);
+    console.log(`👤 User ${socket.user.name} left project room: ${projectId}`);
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log(`👤 User disconnected: ${socket.user.name} (${socket.id})`);
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🔌 Socket.io server ready for connections`);
 });
