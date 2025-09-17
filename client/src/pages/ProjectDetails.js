@@ -5,6 +5,7 @@ import { fetchProjects } from '../store/slices/projectSlice';
 import Chat from '../components/Chat';
 import FileUpload from '../components/FileUpload';
 import FileList from '../components/FileList';
+import Analytics from '../components/Analytics';
 import './ProjectDetails.css';
 
 const ProjectDetails = () => {
@@ -58,13 +59,20 @@ const ProjectDetails = () => {
           <i className="fas fa-comments"></i>
           Chat
         </button>
-        <button
-          className={`tab-button ${activeTab === 'files' ? 'active' : ''}`}
-          onClick={() => setActiveTab('files')}
-        >
-          <i className="fas fa-folder"></i>
-          Files
-        </button>
+            <button
+              className={`tab-button ${activeTab === 'files' ? 'active' : ''}`}
+              onClick={() => setActiveTab('files')}
+            >
+              <i className="fas fa-folder"></i>
+              Files
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <i className="fas fa-chart-line"></i>
+              Analytics
+            </button>
       </div>
 
       <div className="project-content">
@@ -153,16 +161,20 @@ const ProjectDetails = () => {
               </div>
             </div>
           </>
-        ) : activeTab === 'chat' ? (
-          <div className="chat-section">
-            <Chat projectId={project._id} projectName={project.title} />
-          </div>
-        ) : (
-          <div className="files-section">
-            <FileUpload projectId={project._id} />
-            <FileList projectId={project._id} />
-          </div>
-        )}
+            ) : activeTab === 'chat' ? (
+              <div className="chat-section">
+                <Chat projectId={project._id} projectName={project.title} />
+              </div>
+            ) : activeTab === 'files' ? (
+              <div className="files-section">
+                <FileUpload projectId={project._id} />
+                <FileList projectId={project._id} />
+              </div>
+            ) : (
+              <div className="analytics-section">
+                <Analytics projectId={project._id} />
+              </div>
+            )}
       </div>
     </div>
   );

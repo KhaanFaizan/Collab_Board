@@ -835,6 +835,117 @@ app.get("/api/calendar/:userId", authMiddleware, async (req, res) => {
   }
 });
 
+// Analytics API - Get project analytics
+app.get("/api/analytics/:projectId", authMiddleware, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Verify user has access to this project
+    const project = await Project.findOne({
+      _id: projectId,
+      $or: [
+        { createdBy: req.user.id },
+        { "members.user": req.user.id }
+      ]
+    });
+
+    if (!project) {
+      return res.status(403).json({ error: "Access denied to this project" });
+    }
+
+    // Get all tasks for this project
+    const tasks = await Task.find({ projectId }).populate('assignedTo', 'name email');
+
+    // Calculate task count by status
+    const taskCounts = {
+      todo: 0,
+      'in-progress': 0,
+      done: 0
+    };
+
+    tasks.forEach(task => {
+      if (taskCounts.hasOwnProperty(task.status)) {
+        taskCounts[task.status]++;
+      }
+    });
+
+    // Calculate completion percentage
+    const totalTasks = tasks.length;
+    const completedTasks = taskCounts.done;
+    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // Calculate workload distribution per team member
+    const workloadDistribution = {};
+    
+    // Initialize all project members
+    project.members.forEach(member => {
+      workloadDistribution[member.user.toString()] = {
+        userId: member.user,
+        userName: member.user.name || 'Unknown User',
+        userEmail: member.user.email || '',
+        totalTasks: 0,
+        tasksByStatus: {
+          todo: 0,
+          'in-progress': 0,
+          done: 0
+        }
+      };
+    });
+
+    // Count tasks per member
+    tasks.forEach(task => {
+      const userId = task.assignedTo._id.toString();
+      if (workloadDistribution[userId]) {
+        workloadDistribution[userId].totalTasks++;
+        if (workloadDistribution[userId].tasksByStatus.hasOwnProperty(task.status)) {
+          workloadDistribution[userId].tasksByStatus[task.status]++;
+        }
+      }
+    });
+
+    // Convert to array and sort by total tasks
+    const workloadArray = Object.values(workloadDistribution)
+      .sort((a, b) => b.totalTasks - a.totalTasks);
+
+    // Calculate additional analytics
+    const analytics = {
+      projectId,
+      projectTitle: project.title,
+      totalTasks,
+      taskCounts,
+      completionPercentage,
+      workloadDistribution: workloadArray,
+      // Additional metrics
+      averageTasksPerMember: project.members.length > 0 ? Math.round(totalTasks / project.members.length) : 0,
+      mostActiveMember: workloadArray.length > 0 ? workloadArray[0] : null,
+      leastActiveMember: workloadArray.length > 0 ? workloadArray[workloadArray.length - 1] : null,
+      // Timeline data
+      createdAt: project.createdAt,
+      deadline: project.deadline,
+      daysRemaining: Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24)),
+      // Status summary
+      isOnTrack: completionPercentage >= 70 || (new Date(project.deadline) - new Date()) > 0,
+      urgencyLevel: (() => {
+        const daysLeft = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) return 'overdue';
+        if (daysLeft <= 3) return 'critical';
+        if (daysLeft <= 7) return 'urgent';
+        if (daysLeft <= 14) return 'moderate';
+        return 'low';
+      })()
+    };
+
+    res.json({
+      success: true,
+      analytics
+    });
+
+  } catch (err) {
+    console.error("Analytics API error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
