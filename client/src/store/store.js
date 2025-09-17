@@ -4,6 +4,7 @@ import projectReducer from './slices/projectSlice';
 import taskReducer from './slices/taskSlice';
 import chatReducer from './slices/chatSlice';
 import fileReducer from './slices/fileSlice';
+import calendarReducer from './slices/calendarSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,5 +13,6 @@ export const store = configureStore({
     tasks: taskReducer,
     chat: chatReducer,
     files: fileReducer,
+    calendar: calendarReducer,
   },
 });

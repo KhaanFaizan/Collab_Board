@@ -32,6 +32,10 @@ const Navbar = () => {
               <i className="fas fa-folder"></i>
               Projects
             </Link>
+            <Link to="/calendar" className="navbar-link">
+              <i className="fas fa-calendar-alt"></i>
+              Calendar
+            </Link>
             
             <div className="navbar-user">
               <div className="user-info">

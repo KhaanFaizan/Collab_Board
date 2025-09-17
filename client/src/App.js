@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetails from './pages/ProjectDetails';
 import Tasks from './pages/Tasks';
+import Calendar from './pages/Calendar';
 import './App.css';
 
 function App() {
@@ -46,15 +47,23 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-              <Route 
-                path="/tasks/:projectId" 
-                element={
-                  <ProtectedRoute>
-                    <Tasks />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route
+                    path="/tasks/:projectId"
+                    element={
+                      <ProtectedRoute>
+                        <Tasks />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/calendar"
+                    element={
+                      <ProtectedRoute>
+                        <Calendar />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
         </div>

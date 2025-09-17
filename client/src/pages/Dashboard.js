@@ -110,11 +110,11 @@ const Dashboard = () => {
           <div className="action-buttons">
             <Link to="/projects" className="action-btn">
               <i className="fas fa-plus"></i>
-              New Project
+              <span>New Project</span>
             </Link>
             <Link to="/projects" className="action-btn">
               <i className="fas fa-search"></i>
-              Browse Projects
+              <span>Browse Projects</span>
             </Link>
           </div>
         </div>

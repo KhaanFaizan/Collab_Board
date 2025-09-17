@@ -765,6 +765,76 @@ app.delete("/api/files/:fileId", authMiddleware, async (req, res) => {
   }
 });
 
+// Calendar API - Get user's calendar data
+app.get("/api/calendar/:userId", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify user can access this calendar data
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Get all projects where user is a member or creator
+    const projects = await Project.find({
+      $or: [
+        { createdBy: userId },
+        { "members.user": userId }
+      ]
+    }).populate('createdBy', 'name email');
+
+    // Get all tasks assigned to the user
+    const tasks = await Task.find({
+      assignedTo: userId
+    }).populate('projectId', 'title deadline');
+
+    // Combine project deadlines and task deadlines
+    const calendarEntries = [];
+
+    // Add project deadlines
+    projects.forEach(project => {
+      calendarEntries.push({
+        id: `project-${project._id}`,
+        type: 'project',
+        title: project.title,
+        taskTitle: null,
+        deadline: project.deadline,
+        projectId: project._id,
+        projectTitle: project.title,
+        createdAt: project.createdAt
+      });
+    });
+
+    // Add task deadlines
+    tasks.forEach(task => {
+      calendarEntries.push({
+        id: `task-${task._id}`,
+        type: 'task',
+        title: task.title,
+        taskTitle: task.title,
+        deadline: task.projectId?.deadline || new Date(),
+        projectId: task.projectId?._id,
+        projectTitle: task.projectId?.title || 'Unknown Project',
+        createdAt: task.createdAt
+      });
+    });
+
+    // Sort by deadline
+    calendarEntries.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
+    res.json({
+      success: true,
+      calendarEntries,
+      totalProjects: projects.length,
+      totalTasks: tasks.length
+    });
+
+  } catch (err) {
+    console.error("Calendar API error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
