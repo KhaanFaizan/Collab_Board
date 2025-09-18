@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../store/slices/authSlice';
 import { fetchNotifications } from '../store/slices/notificationSlice';
 import NotificationDropdown from './NotificationDropdown';
+import ThemeToggle from './ThemeToggle';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -80,6 +81,7 @@ const Navbar = () => {
             )}
             
             <div className="navbar-user">
+              <ThemeToggle />
               <div className="notification-container">
                 <button 
                   className="notification-btn"

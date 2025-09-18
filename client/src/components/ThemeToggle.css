@@ -1,0 +1,67 @@
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.05);
+}
+
+.toggle-track {
+  width: 50px;
+  height: 24px;
+  background: #e1e5e9;
+  border-radius: 12px;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle.dark .toggle-track {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.toggle-thumb {
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle.dark .toggle-thumb {
+  transform: translateX(26px);
+  background: #ffd700;
+}
+
+.toggle-thumb i {
+  font-size: 10px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle.dark .toggle-thumb i {
+  color: #333;
+}
+
+.theme-toggle:hover .toggle-thumb {
+  transform: scale(1.1);
+}
+
+.theme-toggle.dark:hover .toggle-thumb {
+  transform: translateX(26px) scale(1.1);
+}

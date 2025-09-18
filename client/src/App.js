@@ -2,8 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -17,66 +19,83 @@ import './App.css';
 function App() {
   return (
     <Provider store={store}>
-      <Router>
-        <div className="App">
-          <Navbar />
-          <main className="main-content">
+      <ThemeProvider>
+        <Router>
+          <div className="App">
             <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
                     <Dashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/projects" 
-                element={
-                  <ProtectedRoute>
+                  </main>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/projects" 
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
                     <Projects />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/projects/:id" 
-                element={
-                  <ProtectedRoute>
+                  </main>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/projects/:id" 
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
                     <ProjectDetails />
-                  </ProtectedRoute>
-                } 
-              />
-                  <Route
-                    path="/tasks/:projectId"
-                    element={
-                      <ProtectedRoute>
-                        <Tasks />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/calendar"
-                    element={
-                      <ProtectedRoute>
-                        <Calendar />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute>
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
+                  </main>
+                </ProtectedRoute>
+              } 
+            />
+            <Route
+              path="/tasks/:projectId"
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
+                    <Tasks />
+                  </main>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
+                    <Calendar />
+                  </main>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <main className="main-content">
+                    <AdminDashboard />
+                  </main>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+          </div>
+        </Router>
+      </ThemeProvider>
     </Provider>
   );
 }

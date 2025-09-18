@@ -21,7 +21,15 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    process.env.CLIENT_URL || "http://localhost:3000",
+    "https://collabboard-frontend-three.vercel.app",
+    "https://collabboard.vercel.app",
+    "https://collabboard-git-main-faizankhaan.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Default route
