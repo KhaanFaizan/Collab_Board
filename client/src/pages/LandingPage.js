@@ -14,18 +14,23 @@ const LandingPage = () => {
   useEffect(() => {
     const animateCounters = () => {
       const counters = document.querySelectorAll('.stat-number');
-      counters.forEach(counter => {
+      counters.forEach((counter, index) => {
         const target = parseInt(counter.getAttribute('data-target'));
         const increment = target / 100;
         let current = 0;
         
+        // Determine which stats should have "+" symbol
+        const shouldAddPlus = index !== 2; // All except "Uptime %" (index 2)
+        
         const updateCounter = () => {
           if (current < target) {
             current += increment;
-            counter.textContent = Math.ceil(current).toLocaleString();
+            const displayValue = Math.ceil(current).toLocaleString();
+            counter.textContent = shouldAddPlus ? `${displayValue}+` : displayValue;
             requestAnimationFrame(updateCounter);
           } else {
-            counter.textContent = target.toLocaleString();
+            const finalValue = target.toLocaleString();
+            counter.textContent = shouldAddPlus ? `${finalValue}+` : finalValue;
           }
         };
         
