@@ -1,7 +1,8 @@
 {
-  "name": "client",
-  "version": "0.1.0",
+  "name": "collabboard",
+  "version": "1.0.0",
   "private": true,
+  "description": "CollabBoard - Collaborative Project Management Platform",
   "dependencies": {
     "@reduxjs/toolkit": "^2.0.1",
     "@testing-library/dom": "^10.4.1",
