@@ -183,14 +183,7 @@ app.get("/api/profile", authMiddleware, (req, res) => {
   });
 });
 
-// ✅ Admin-only route (requires admin role)
-app.get("/api/admin/users", authMiddleware, authorizeRoles("admin"), (req, res) => {
-  res.json({
-    message: "Admin access granted",
-    user: req.user,
-    data: "This is admin-only data"
-  });
-});
+// ✅ Admin-only route (requires admin role) - REMOVED (duplicate with actual implementation below)
 
 // ✅ Manager and Admin route (requires manager or admin role)
 app.get("/api/management/dashboard", authMiddleware, authorizeRoles("admin", "manager"), (req, res) => {
@@ -1174,14 +1167,428 @@ app.delete("/api/notifications/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// Admin-only APIs
+// Get all users (admin only)
+app.get("/api/admin/users", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = '' } = req.query;
+    
+    // Build search query
+    const searchQuery = search ? {
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ]
+    } : {};
+
+    // Get users with pagination
+    const users = await User.find(searchQuery)
+      .select('-password') // Exclude password
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Get total count
+    const total = await User.countDocuments(searchQuery);
+
+    res.json({
+      success: true,
+      users,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+
+  } catch (err) {
+    console.error("Get users error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update user role (admin only)
+app.put("/api/admin/users/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!role || !['member', 'admin'].includes(role)) {
+      return res.status(400).json({ error: "Valid role (member/admin) is required" });
+    }
+
+    // Prevent admin from changing their own role
+    if (id === req.user.id) {
+      return res.status(400).json({ error: "Cannot change your own role" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "User role updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+
+  } catch (err) {
+    console.error("Update user role error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete user (admin only)
+app.delete("/api/admin/users/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent admin from deleting themselves
+    if (id === req.user.id) {
+      return res.status(400).json({ error: "Cannot delete your own account" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if user is the creator of any projects
+    const projectsCreated = await Project.countDocuments({ createdBy: id });
+    if (projectsCreated > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete user. User has created ${projectsCreated} project(s). Please reassign or delete projects first.` 
+      });
+    }
+
+    // Check if user has any tasks assigned
+    const tasksAssigned = await Task.countDocuments({ assignedTo: id });
+    if (tasksAssigned > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete user. User has ${tasksAssigned} task(s) assigned. Please reassign tasks first.` 
+      });
+    }
+
+    // Delete user's notifications
+    await Notification.deleteMany({ userId: id });
+
+    // Delete user's chat messages
+    await ChatMessage.deleteMany({ senderId: id });
+
+    // Remove user from project members
+    await Project.updateMany(
+      { "members.user": id },
+      { $pull: { members: { user: id } } }
+    );
+
+    // Delete the user
+    await User.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "User deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get admin dashboard stats (admin only)
+app.get("/api/admin/dashboard", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalProjects = await Project.countDocuments();
+    const totalTasks = await Task.countDocuments();
+    const totalNotifications = await Notification.countDocuments();
+
+    // Get recent users (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentUsers = await User.countDocuments({ createdAt: { $gte: sevenDaysAgo } });
+
+    // Get users by role
+    const usersByRole = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+
+    // Get recent activity
+    const recentProjects = await Project.find()
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    const recentTasks = await Task.find()
+      .populate('assignedTo', 'name email')
+      .populate('projectId', 'title')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalProjects,
+        totalTasks,
+        totalNotifications,
+        recentUsers,
+        usersByRole: usersByRole.reduce((acc, item) => {
+          acc[item._id] = item.count;
+          return acc;
+        }, {})
+      },
+      recentActivity: {
+        projects: recentProjects,
+        tasks: recentTasks
+      }
+    });
+
+  } catch (err) {
+    console.error("Admin dashboard error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all projects (admin only)
+app.get("/api/admin/projects", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = '', status = '' } = req.query;
+    
+    // Build search query
+    let searchQuery = {};
+    if (search) {
+      searchQuery.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add status filter if provided
+    if (status) {
+      const now = new Date();
+      switch (status) {
+        case 'active':
+          searchQuery.deadline = { $gte: now };
+          break;
+        case 'overdue':
+          searchQuery.deadline = { $lt: now };
+          break;
+        case 'completed':
+          searchQuery.status = 'completed';
+          break;
+      }
+    }
+
+    // Get projects with pagination
+    const projects = await Project.find(searchQuery)
+      .populate('createdBy', 'name email')
+      .populate('members.user', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Get total count
+    const total = await Project.countDocuments(searchQuery);
+
+    res.json({
+      success: true,
+      projects,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+
+  } catch (err) {
+    console.error("Get admin projects error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all tasks (admin only)
+app.get("/api/admin/tasks", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = '', status = '', projectId = '' } = req.query;
+    
+    // Build search query
+    let searchQuery = {};
+    if (search) {
+      searchQuery.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add status filter if provided
+    if (status) {
+      searchQuery.status = status;
+    }
+
+    // Add project filter if provided
+    if (projectId) {
+      searchQuery.projectId = projectId;
+    }
+
+    // Get tasks with pagination
+    const tasks = await Task.find(searchQuery)
+      .populate('assignedTo', 'name email')
+      .populate('projectId', 'title')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Get total count
+    const total = await Task.countDocuments(searchQuery);
+
+    res.json({
+      success: true,
+      tasks,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+
+  } catch (err) {
+    console.error("Get admin tasks error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update project (admin only)
+app.put("/api/admin/projects/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const project = await Project.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true, runValidators: true }
+    ).populate('createdBy', 'name email')
+     .populate('members.user', 'name email');
+
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Project updated successfully",
+      project
+    });
+
+  } catch (err) {
+    console.error("Update admin project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update task (admin only)
+app.put("/api/admin/tasks/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const task = await Task.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true, runValidators: true }
+    ).populate('assignedTo', 'name email')
+     .populate('projectId', 'title');
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Task updated successfully",
+      task
+    });
+
+  } catch (err) {
+    console.error("Update admin task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete project (admin only)
+app.delete("/api/admin/projects/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Delete all tasks in this project
+    await Task.deleteMany({ projectId: id });
+
+    // Delete all chat messages in this project
+    await ChatMessage.deleteMany({ projectId: id });
+
+    // Delete the project
+    const project = await Project.findByIdAndDelete(id);
+
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Project and all associated tasks deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete admin project error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete task (admin only)
+app.delete("/api/admin/tasks/:id", authMiddleware, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const task = await Task.findByIdAndDelete(id);
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Task deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete admin task error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // MongoDB connection
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/collab_board';
+
 mongoose
-  .connect(process.env.MONGO_URI, {
+  .connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
   .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err);
+    console.log("💡 Please check your MongoDB connection and .env file");
+  });
 
 // Create HTTP server
 const server = http.createServer(app);

@@ -3,10 +3,10 @@ import authReducer from './slices/authSlice';
 import projectReducer from './slices/projectSlice';
 import taskReducer from './slices/taskSlice';
 import chatReducer from './slices/chatSlice';
-import fileReducer from './slices/fileSlice';
 import calendarReducer from './slices/calendarSlice';
 import analyticsReducer from './slices/analyticsSlice';
 import notificationReducer from './slices/notificationSlice';
+import adminReducer from './slices/adminSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,9 +14,9 @@ export const store = configureStore({
     projects: projectReducer,
     tasks: taskReducer,
     chat: chatReducer,
-    files: fileReducer,
     calendar: calendarReducer,
     analytics: analyticsReducer,
     notifications: notificationReducer,
+    admin: adminReducer,
   },
 });

@@ -72,6 +72,13 @@ const Navbar = () => {
               Calendar
             </Link>
             
+            {user?.role === 'admin' && (
+              <Link to="/admin" className="navbar-link admin-link">
+                <i className="fas fa-crown"></i>
+                Admin
+              </Link>
+            )}
+            
             <div className="navbar-user">
               <div className="notification-container">
                 <button 

@@ -3,8 +3,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useParams, Link } from 'react-router-dom';
 import { fetchProjects } from '../store/slices/projectSlice';
 import Chat from '../components/Chat';
-import FileUpload from '../components/FileUpload';
-import FileList from '../components/FileList';
 import Analytics from '../components/Analytics';
 import './ProjectDetails.css';
 
@@ -59,13 +57,6 @@ const ProjectDetails = () => {
           <i className="fas fa-comments"></i>
           Chat
         </button>
-            <button
-              className={`tab-button ${activeTab === 'files' ? 'active' : ''}`}
-              onClick={() => setActiveTab('files')}
-            >
-              <i className="fas fa-folder"></i>
-              Files
-            </button>
             <button
               className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
               onClick={() => setActiveTab('analytics')}
@@ -164,11 +155,6 @@ const ProjectDetails = () => {
             ) : activeTab === 'chat' ? (
               <div className="chat-section">
                 <Chat projectId={project._id} projectName={project.title} />
-              </div>
-            ) : activeTab === 'files' ? (
-              <div className="files-section">
-                <FileUpload projectId={project._id} />
-                <FileList projectId={project._id} />
               </div>
             ) : (
               <div className="analytics-section">

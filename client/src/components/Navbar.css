@@ -127,6 +127,21 @@
   }
 }
 
+.admin-link {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #333 !important;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.admin-link:hover {
+  background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
 .notification-container {
   position: relative;
   margin-right: 1rem;
