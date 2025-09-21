@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const http = require("http");
 const socketIo = require("socket.io");
+const path = require("path");
 const User = require("./models/User");
 const Project = require("./models/Project");
 const Task = require("./models/Task");
@@ -32,6 +33,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, '../client/build')));
 
 // Default route
 app.get("/", (req, res) => {
@@ -1894,6 +1898,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log(`👤 User disconnected: ${socket.user.name} (${socket.id})`);
   });
+});
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
 
 // Start server
