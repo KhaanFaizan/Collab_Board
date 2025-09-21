@@ -2,6 +2,7 @@
   "name": "collabboard",
   "version": "1.0.0",
   "private": true,
+  "homepage": ".",
   "description": "CollabBoard - Collaborative Project Management Platform",
   "dependencies": {
     "@reduxjs/toolkit": "^2.0.1",
@@ -28,7 +29,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "proxy": "http://localhost:5000",
-    "vercel-build": "react-scripts build"
+    "vercel-build": "react-scripts build",
+    "render-build": "CI=false react-scripts build"
   },
   "eslintConfig": {
     "extends": [

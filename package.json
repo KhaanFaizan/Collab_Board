@@ -1,12 +1,30 @@
 {
   "name": "collab-board",
   "version": "1.0.0",
+  "description": "CollabBoard - Collaborative Project Management Platform",
+  "main": "server/index.js",
   "scripts": {
     "client": "npm start --prefix client",
     "server": "npm run dev --prefix server",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "cd client && npm install && npm run build",
-    "start": "cd server && npm install && npm start",
-    "install-all": "npm install && cd client && npm install && cd ../server && npm install"
-  }
+    "build": "node build-render.js",
+    "build:client": "cd client && npm install && npm run build",
+    "build:server": "cd server && npm install && echo 'Server dependencies installed'",
+    "start": "cd server && npm start",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "postinstall": "cd client && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "collaboration",
+    "project-management",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "CollabBoard Team",
+  "license": "MIT"
 }
