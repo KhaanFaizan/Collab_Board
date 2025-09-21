@@ -10,8 +10,7 @@
   [![MongoDB](https://img.shields.io/badge/MongoDB-Database-green.svg)](https://mongodb.com/)
   [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
   
-  [Live Demo](https://collabboard-demo.vercel.app) • [Documentation](https://docs.collabboard.com) • [Report Bug](https://github.com/yourusername/CollabBoard/issues)
-</div>
+  [🌐 Live Demo](https://collab-board-hxcw.onrender.com/dashboard) • [📚 Documentation](https://docs.collabboard.com)
 
 ---
 
@@ -31,6 +30,22 @@
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 - [👥 Team](#-team)
+
+---
+
+## 🌐 Live Demo
+
+**🎉 Try CollabBoard right now!**
+
+👉 **[https://collab-board-hxcw.onrender.com/dashboard](https://collab-board-hxcw.onrender.com/dashboard)**
+
+- ✅ **Fully Functional** - All features working in production
+- 🚀 **Real-time Updates** - Live collaboration and notifications
+- 📱 **Mobile Responsive** - Works on all devices
+- 🔐 **Secure Authentication** - JWT-based user management
+- 📊 **Complete Dashboard** - Project management and analytics
+
+*No registration required to explore the interface!*
 
 ---
 
