@@ -88,7 +88,7 @@ dist/
 
 # Gatsby
 .cache/
-public/
+# Note: client/public/ is needed for React apps, so we don't ignore it globally
 
 # Storybook
 .out/
