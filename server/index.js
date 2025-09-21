@@ -28,7 +28,9 @@ app.use(cors({
     "https://collabboard-frontend-three.vercel.app",
     "https://collabboard.vercel.app",
     "https://collabboard-git-main-faizankhaan.vercel.app",
-    "http://collabboard-frontend-p2nxhen4u-i221356-4199s-projects.vercel.app"
+    "http://collabboard-frontend-p2nxhen4u-i221356-4199s-projects.vercel.app",
+    // Allow same origin for integrated deployment
+    /^https:\/\/.*\.onrender\.com$/
   ],
   credentials: true
 }));
@@ -1611,7 +1613,9 @@ const io = socketIo(server, {
   cors: {
     origin: [
       process.env.CLIENT_URL || "http://localhost:3000",
-      "http://collabboard-frontend-p2nxhen4u-i221356-4199s-projects.vercel.app"
+      "http://collabboard-frontend-p2nxhen4u-i221356-4199s-projects.vercel.app",
+      // Allow same origin for integrated deployment
+      /^https:\/\/.*\.onrender\.com$/
     ],
     methods: ["GET", "POST"],
     credentials: true,

@@ -11,7 +11,12 @@ class SocketService {
       return this.socket;
     }
 
-    this.socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
+    // Use relative URL in production (same domain), absolute URL in development
+    const socketURL = process.env.NODE_ENV === 'production' 
+      ? window.location.origin 
+      : (process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
+    
+    this.socket = io(socketURL, {
       auth: {
         token: token
       },
